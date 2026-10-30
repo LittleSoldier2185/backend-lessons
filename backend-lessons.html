@@ -1575,6 +1575,8 @@ ON DUPLICATE KEY UPDATE score = VALUES(score)</pre>
   // Enter ขึ้นบรรทัดใหม่โดยคงการเยื้องเดิม และ Ctrl+Enter ตรวจคำตอบ
   // วงเล็บคู่ที่ปิดให้อัตโนมัติ: เปิด -> ปิด
   const OPEN_CLOSE = { '(': ')', '[': ']', '{': '}' };
+  // เครื่องหมายคำพูดที่ปิดให้อัตโนมัติ (ปิดตัวเองและข้ามตัวปิดได้เหมือนกัน)
+  const QUOTES = ["'", '"'];
 
   function lineBounds(v, pos) {
     const start = pos === 0 ? 0 : v.lastIndexOf('\n', pos - 1) + 1;
@@ -1626,7 +1628,31 @@ ON DUPLICATE KEY UPDATE score = VALUES(score)</pre>
       ta.setSelectionRange(s + 1, s + 1);
       return;
     }
-    if (e.key === 'Backspace' && s === en && s > 0 && OPEN_CLOSE[v[s - 1]] !== undefined && v[s] === OPEN_CLOSE[v[s - 1]]) {
+    // คำพูด: ถ้าอยู่ติดกับตัวอักษรหรือตัวเลข (เช่น don't) จะไม่ปิดให้ เพื่อไม่ให้กวนการพิมพ์ข้อความ
+    if (QUOTES.includes(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      if (s === en && v[s] === e.key) {
+        e.preventDefault();
+        ta.setSelectionRange(s + 1, s + 1);
+        return;
+      }
+      if (s !== en) {
+        e.preventDefault();
+        ta.setRangeText(e.key + v.slice(s, en) + e.key, s, en, 'select');
+        ta.dispatchEvent(new Event('input'));
+        return;
+      }
+      if (!/[A-Za-z0-9_]/.test(v[s - 1] || '')) {
+        e.preventDefault();
+        ta.setRangeText(e.key + e.key, s, en, 'preserve');
+        ta.setSelectionRange(s + 1, s + 1);
+        ta.dispatchEvent(new Event('input'));
+        return;
+      }
+    }
+    const pairedNow = OPEN_CLOSE[v[s - 1]] !== undefined
+      ? v[s] === OPEN_CLOSE[v[s - 1]]
+      : QUOTES.includes(v[s - 1]) && v[s] === v[s - 1];
+    if (e.key === 'Backspace' && s === en && s > 0 && pairedNow) {
       e.preventDefault();
       ta.setRangeText('', s - 1, s + 1, 'preserve');
       ta.setSelectionRange(s - 1, s - 1);
