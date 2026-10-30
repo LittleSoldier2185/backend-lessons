@@ -101,6 +101,15 @@
   .set-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 0.92rem; }
   #rain { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; opacity: 0.16; }
   .layout { position: relative; z-index: 1; }
+  .editor { position: relative; }
+  .suggest { position: absolute; left: 0; top: 0; z-index: 5; list-style: none; margin: 0; padding: 4px; min-width: 180px; max-height: 240px; overflow-y: auto; background: var(--panel); border: 1px solid var(--border); border-radius: 6px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18); font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace; font-size: 0.85rem; }
+  .suggest[hidden] { display: none; }
+  .suggest li { padding: 3px 8px; border-radius: 4px; cursor: pointer; }
+  .suggest li.on { background: var(--accent); color: var(--bg); }
+  .lib { display: flex; flex-direction: column; gap: 10px; background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
+  .lib[hidden] { display: none; }
+  .lib-item { display: flex; flex-direction: column; gap: 6px; border-top: 1px dashed var(--border); padding-top: 10px; }
+  .lib-item pre { margin: 0; }
   .gl-search { width: 100%; font: inherit; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--fg); }
   .gl-list { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .gl-item { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -123,7 +132,7 @@
   .tr-n { color: var(--muted); text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; padding-top: 2px; }
   .tr-code { white-space: pre-wrap; overflow-wrap: anywhere; background: none; padding: 0; font-size: 0.82rem; }
   .tr-text { overflow-wrap: anywhere; }
-  .editor { display: grid; grid-template-columns: auto minmax(0, 1fr); background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .editor { display: grid; grid-template-columns: auto minmax(0, 1fr); background: var(--code-bg); border: 1px solid var(--border); border-radius: 6px; overflow: visible; }
   .editor .gutter { overflow: hidden; padding: 10px 10px 10px 12px; text-align: right; color: var(--muted); background: var(--bg); border-right: 1px solid var(--border); font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace; font-size: 0.88rem; line-height: 1.55; white-space: pre; user-select: none; }
   .editor textarea { border: 0; border-radius: 0; background: transparent; min-width: 0; min-height: 0; padding: 10px 12px; line-height: 1.55; white-space: pre; overflow: auto; tab-size: 2; }
   .editor textarea:focus-visible { outline: none; }
@@ -174,8 +183,91 @@
     <p class="lede">เนื้อหาทั้งหมดดึงจากไฟล์ใน <code>backend/</code> โดยตรง แต่ละช่วงบรรทัดมีคำอธิบายกำกับ คำที่มี ⚠ คือจุดที่ควรระวังหรือบั๊กที่พบจากการอ่านโค้ด</p>
     <div class="progress-bar" role="progressbar" aria-label="ความคืบหน้ารวม" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="progressFill"></div></div>
     <p id="progress" class="lede"></p>
+    
+    <div class="lib" id="libPanel" hidden>
+      <p class="src">คลิกเลือกช่องพิมพ์ก่อน แล้วกด "แทรก" เพื่อใส่โค้ดตัวอย่างตรงตำแหน่งเคอร์เซอร์</p>
+      <p id="libMsg" class="feedback"></p>
+      
+      <div class="lib-item">
+        <div class="gl-head"><strong>route ของ Express</strong> <span class="src">endpoint ที่รับ id จาก URL แล้วตอบ 404 ถ้าไม่พบ</span></div>
+        <pre>router.get('/:id', async (req, res) =&gt; {
+  const rows = await query('SELECT * FROM users WHERE id = ?', [req.params.id]);
+  if (rows.length === 0) return error(res, 404, 'ไม่พบข้อมูล');
+  ok(res, rows[0]);
+});</pre>
+        <div><button type="button" class="lib-insert" data-snippet="0">แทรก</button></div>
+      </div>
+      <div class="lib-item">
+        <div class="gl-head"><strong>ตรวจข้อมูลก่อนบันทึก</strong> <span class="src">เรียก validate แล้วตอบ 400 ถ้าไม่ผ่าน</span></div>
+        <pre>const message = validate(req.body);
+if (message) return error(res, 400, message);</pre>
+        <div><button type="button" class="lib-insert" data-snippet="1">แทรก</button></div>
+      </div>
+      <div class="lib-item">
+        <div class="gl-head"><strong>เพิ่มแถวแล้วคืน id</strong> <span class="src">INSERT แล้วส่ง insertId กลับ</span></div>
+        <pre>const result = await query('INSERT INTO periods (name) VALUES (?)', [req.body.name]);
+ok(res, { id: result.insertId }, 'สร้างแล้ว');</pre>
+        <div><button type="button" class="lib-insert" data-snippet="2">แทรก</button></div>
+      </div>
+      <div class="lib-item">
+        <div class="gl-head"><strong>แก้ไขแล้วตรวจว่าพบแถว</strong> <span class="src">UPDATE และตอบ 404 ถ้า affectedRows เป็น 0</span></div>
+        <pre>const result = await query('UPDATE periods SET name = ? WHERE id = ?', [req.body.name, req.params.id]);
+if (result.affectedRows === 0) return error(res, 404, 'ไม่พบข้อมูล');
+ok(res, null, 'แก้ไขแล้ว');</pre>
+        <div><button type="button" class="lib-insert" data-snippet="3">แทรก</button></div>
+      </div>
+      <div class="lib-item">
+        <div class="gl-head"><strong>ลบแถว</strong> <span class="src">DELETE แล้วตรวจว่าพบแถว</span></div>
+        <pre>const result = await query('DELETE FROM topics WHERE id = ?', [req.params.id]);
+if (result.affectedRows === 0) return error(res, 404, 'ไม่พบข้อมูล');
+ok(res, null, 'ลบแล้ว');</pre>
+        <div><button type="button" class="lib-insert" data-snippet="4">แทรก</button></div>
+      </div>
+      <div class="lib-item">
+        <div class="gl-head"><strong>ตรวจสิทธิ์เจ้าของหรือ admin</strong> <span class="src">ตอบ 403 ถ้าไม่ใช่ทั้งเจ้าของและ admin</span></div>
+        <pre>if (req.user.role !== 'admin' &amp;&amp; req.user.id !== Number(req.params.userId)) {
+  return error(res, 403, 'ไม่มีสิทธิ์ใช้งานส่วนนี้');
+}</pre>
+        <div><button type="button" class="lib-insert" data-snippet="5">แทรก</button></div>
+      </div>
+      <div class="lib-item">
+        <div class="gl-head"><strong>บันทึกแบบ upsert</strong> <span class="src">เพิ่มใหม่หรือแก้ค่าเดิมถ้าซ้ำ UNIQUE</span></div>
+        <pre>await query(
+  'INSERT INTO scores (assignment_id, indicator_id, score) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE score = VALUES(score)',
+  [assignmentId, indicatorId, score],
+);</pre>
+        <div><button type="button" class="lib-insert" data-snippet="6">แทรก</button></div>
+      </div>
+      <div class="lib-item">
+        <div class="gl-head"><strong>transaction</strong> <span class="src">ทำหลายคำสั่งให้สำเร็จหรือยกเลิกพร้อมกัน</span></div>
+        <pre>const conn = await pool.getConnection();
+try {
+  await conn.beginTransaction();
+  await conn.query('UPDATE ...', [...]);
+  await conn.commit();
+} catch (err) {
+  await conn.rollback();
+  throw err;
+} finally {
+  conn.release();
+}</pre>
+        <div><button type="button" class="lib-insert" data-snippet="7">แทรก</button></div>
+      </div>
+      <div class="lib-item">
+        <div class="gl-head"><strong>เทียบรหัสผ่าน</strong> <span class="src">bcrypt เทียบรหัสที่กรอกกับ hash ที่เก็บไว้</span></div>
+        <pre>const valid = await bcrypt.compare(password, user.password);
+if (!valid) return error(res, 401, 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');</pre>
+        <div><button type="button" class="lib-insert" data-snippet="8">แทรก</button></div>
+      </div>
+      <div class="lib-item">
+        <div class="gl-head"><strong>ออก token</strong> <span class="src">สร้าง JWT ที่หมดอายุใน 8 ชั่วโมง</span></div>
+        <pre>const token = jwt.sign({ id: user.id, role: user.role }, SECRET, { expiresIn: '8h' });</pre>
+        <div><button type="button" class="lib-insert" data-snippet="9">แทรก</button></div>
+      </div>
+    </div>
     <div class="toolbar">
       <button type="button" class="nav-toggle" id="navToggle" aria-controls="sidebar" aria-expanded="false">สารบัญ</button>
+      <button type="button" id="libToggle" aria-controls="libPanel">คลังโค้ด</button>
       <div class="settings-wrap">
         <button type="button" id="settingsToggle" aria-expanded="false" aria-controls="settingsPanel">ตั้งค่า</button>
         <div class="settings" id="settingsPanel" hidden>
@@ -1503,6 +1595,17 @@ ON DUPLICATE KEY UPDATE score = VALUES(score)</pre>
       ta.dispatchEvent(new Event('input'));
       return;
     }
+    // Backspace หลังช่องว่างนำหน้าล้วน ลบกลับไปยังระดับเยื้องก่อนหน้า (ทีละ 2 ช่อง) เหมือน VS Code
+    if (e.key === 'Backspace' && s === en && s > 0) {
+      const lead = v.slice(lineBounds(v, s)[0], s);
+      if (/^ +$/.test(lead)) {
+        e.preventDefault();
+        const n = lead.length % 2 === 0 ? 2 : 1;
+        ta.setRangeText('', s - n, s, 'end');
+        ta.dispatchEvent(new Event('input'));
+        return;
+      }
+    }
     if (e.key !== 'Tab') return;
     e.preventDefault();
     if (s === en && !e.shiftKey) {
@@ -1622,7 +1725,15 @@ ON DUPLICATE KEY UPDATE score = VALUES(score)</pre>
         ta.spellcheck = false;
         ta.rows = Math.min(Math.max(3, block.lines.length), 20);
         ta.setAttribute('aria-label', file + ' บรรทัด ' + block.start + ' ถึง ' + block.end);
-        ta.addEventListener('keydown', (e) => editorKeydown(ta, e, () => checkBtn.click()));
+        ta.addEventListener('keydown', (e) => {
+          if (suggestKey(ta, sugBox, e)) {
+            e.preventDefault();
+            return;
+          }
+          editorKeydown(ta, e, () => checkBtn.click());
+        });
+        ta.addEventListener('focus', () => { lastEditor = ta; });
+        ta.addEventListener('blur', () => setTimeout(() => { sugBox.hidden = true; }, 150));
 
         const actions = document.createElement('div');
         actions.className = 'actions';
@@ -1692,7 +1803,10 @@ ON DUPLICATE KEY UPDATE score = VALUES(score)</pre>
         gutter.setAttribute('aria-hidden', 'true');
         const editor = document.createElement('div');
         editor.className = 'editor';
-        editor.append(gutter, ta);
+        const sugBox = document.createElement('ul');
+        sugBox.className = 'suggest';
+        sugBox.hidden = true;
+        editor.append(gutter, ta, sugBox);
         const updateGutter = () => {
           const n = Math.max(1, ta.value.split('\n').length);
           gutter.textContent = Array.from({ length: n }, (_, i) => String(i + 1)).join('\n');
@@ -1706,7 +1820,18 @@ ON DUPLICATE KEY UPDATE score = VALUES(score)</pre>
           saveDrafts();
           updateGutter();
         });
-        ta.addEventListener('scroll', () => { gutter.scrollTop = ta.scrollTop; });
+        ta.addEventListener('input', () => {
+          if (ta.suppress) {
+            ta.suppress = false;
+            sugBox.hidden = true;
+            return;
+          }
+          updateSuggest(ta, sugBox);
+        });
+        ta.addEventListener('scroll', () => {
+          gutter.scrollTop = ta.scrollTop;
+          sugBox.hidden = true;
+        });
         updateGutter();
 
         box.append(note, editor, actions, fb, diffBox, answer);
@@ -1772,6 +1897,115 @@ ON DUPLICATE KEY UPDATE score = VALUES(score)</pre>
     }
   }, { rootMargin: '-15% 0px -75% 0px' });
   for (const t of document.querySelectorAll('section.chapter, .filehead[id]')) observer.observe(t);
+
+  // ---------- คลังโค้ดและตัวช่วยเติมคำ ----------
+  const VOCAB = ["const","let","async","await","return","require","module","exports","throw","catch","finally","SELECT","FROM","WHERE","INSERT","INTO","VALUES","UPDATE","SET","DELETE","JOIN","ORDER","BY","GROUP","COUNT","DISTINCT","AS","NULL","router","req","res","next","query","error","ok","body","params","status","json","api","users","indicators","periods","user","null","NOT","evaluatee_id","name","indicator_id","result","period_id","message","password","full_name","score","role","admin","assignments","rows","scores","item","test","assignment","login","username","length","KEY","period","INT","email","topics","function","detail","evaluator_id","app","percent","GET","file","assert","department","confirmed","express","use","for","token","allow","self","POST","get","reason","auth","row","node","start_date","end_date","score_type","committee_role","total","helpers","PUT","AND","userId","details","strictEqual","FOREIGN","VARCHAR","evaluatee","topic_id","weight","hash","affectedRows","REFERENCES","CASCADE","url","routes","data","err","getIndicators","Router","put","insertId","DEFAULT","must_change_password","process","backup","path","call","code","validScore","bcrypt","post","validate","upload","CREATE","TABLE","EXISTS","AUTO_INCREMENT","PRIMARY","yesno","comment","self_details","assignment_id","env","API","evaluate","find","periodId","committees","scale","evidence","self_scores","sql","includes","delete","tables","table","evaluator","chair","signature","reports","getPeriodOfIndicator","lockReason","multer","folder","seed","ids","member","pool","true","PORT","Date","createToken","new_password","filename","getMyAssignment","person","newId","UNIQUE","ENUM","pending","cors","files","console","http","isOpen","new","Number","Math","round","SECRET","bcryptjs","FIELDS","selfScores","evaluatees","push","evaluators","JSON","year","TEXT","draft","localhost","startsWith","today","totalWeight","jwt","Bearer","old_password","DESC","topic","evaluatee_name","evaluator_name","getPeriodOfDetail","done","URL","image","PNG","JPG","myScores","mine","isOwner","TABLES","command","emp","DATE","file_name","docker","compose","mysql","mysql2","evaluation","values","log","indicator","max","indicatorId","jsonwebtoken","middleware","Authorization","xxx","headers","try","allowed","roles","compare","chairs","reset","detailId","my_score","filter","progress","DUPLICATE","form","single","fileName","uploads","join","__dirname","pdf","now","okTypes","application","mimetype","PDF","basename","self_score","confirm","Dashboard","dashboard","filled","isCommittee","sum","Content","restore","FOREIGN_KEY_CHECKS","server","nodemon","tests","schema","admin1234","emp1","emp12345","emp2","eva1","eva12345","eva2","mustChange","exit","npm","backend","method","Login","test12345","BOOLEAN","TRUE","DECIMAL","MySQL","environment","yml","promise","createPool","host","DB_HOST","port","DB_PORT","DB_USER","root","DB_PASSWORD","database","DB_NAME","dateStrings","Back","end","limit","Exception","Handling","ER_DUP_ENTRY","LIMIT_FILE_SIZE","listen","success","toLocaleDateString","topic_name","JWT","Token","JWT_SECRET","change","this","secret","key","sign","expiresIn","header","authorization","replace","verify","originalUrl","can_edit","lock_reason","fields","https","mkdirSync","recursive","storage","diskStorage","destination","extname","originalname","toLowerCase","limits","fileSize","fileFilter","png","jpeg","else","Error","existsSync","download","period_name","continue","some","reduce","created_at","toISOString","setHeader","Disposition","attachment","getConnection","beginTransaction","commit","rollback","release","private","version","engines","scripts","start","dev","dependencies","devDependencies","readFileSync","utf8","split","trim","IGNORE","getFullYear","false","exec","run","fetch","Type","stringify","undefined","wrong","Validate","abc","Insert","com","Update","nothing"];
+  const SNIPPET_CODE = ["router.get('/:id', async (req, res) => {\n  const rows = await query('SELECT * FROM users WHERE id = ?', [req.params.id]);\n  if (rows.length === 0) return error(res, 404, 'ไม่พบข้อมูล');\n  ok(res, rows[0]);\n});","const message = validate(req.body);\nif (message) return error(res, 400, message);","const result = await query('INSERT INTO periods (name) VALUES (?)', [req.body.name]);\nok(res, { id: result.insertId }, 'สร้างแล้ว');","const result = await query('UPDATE periods SET name = ? WHERE id = ?', [req.body.name, req.params.id]);\nif (result.affectedRows === 0) return error(res, 404, 'ไม่พบข้อมูล');\nok(res, null, 'แก้ไขแล้ว');","const result = await query('DELETE FROM topics WHERE id = ?', [req.params.id]);\nif (result.affectedRows === 0) return error(res, 404, 'ไม่พบข้อมูล');\nok(res, null, 'ลบแล้ว');","if (req.user.role !== 'admin' && req.user.id !== Number(req.params.userId)) {\n  return error(res, 403, 'ไม่มีสิทธิ์ใช้งานส่วนนี้');\n}","await query(\n  'INSERT INTO scores (assignment_id, indicator_id, score) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE score = VALUES(score)',\n  [assignmentId, indicatorId, score],\n);","const conn = await pool.getConnection();\ntry {\n  await conn.beginTransaction();\n  await conn.query('UPDATE ...', [...]);\n  await conn.commit();\n} catch (err) {\n  await conn.rollback();\n  throw err;\n} finally {\n  conn.release();\n}","const valid = await bcrypt.compare(password, user.password);\nif (!valid) return error(res, 401, 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');","const token = jwt.sign({ id: user.id, role: user.role }, SECRET, { expiresIn: '8h' });"];
+  let lastEditor = null;
+
+  function currentWord(ta) {
+    const before = ta.value.slice(0, ta.selectionStart);
+    const m = before.match(/[A-Za-z_][A-Za-z0-9_]*$/);
+    return m ? { word: m[0], start: ta.selectionStart - m[0].length } : null;
+  }
+
+  function showSuggest(ta, box, items, index) {
+    box.replaceChildren();
+    items.forEach((v, i) => {
+      const li = document.createElement('li');
+      li.textContent = v;
+      if (i === index) li.className = 'on';
+      li.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        acceptSuggest(ta, box, v);
+      });
+      box.appendChild(li);
+    });
+    box.hidden = items.length === 0;
+    ta.sug = { items, index };
+    if (!box.hidden) positionSuggest(ta, box);
+  }
+
+  // วางรายการแนะนำใต้บรรทัดที่เคอร์เซอร์อยู่ คำนวณจากเลขบรรทัด คอลัมน์ และขนาดตัวอักษรของช่องพิมพ์
+  function positionSuggest(ta, box) {
+    const cs = getComputedStyle(ta);
+    const lineH = parseFloat(cs.lineHeight);
+    const before = ta.value.slice(0, ta.selectionStart).split('\n');
+    const line = before.length - 1;
+    const col = before[before.length - 1].length;
+    const canvas = positionSuggest.canvas || (positionSuggest.canvas = document.createElement('canvas'));
+    const ctx = canvas.getContext('2d');
+    ctx.font = cs.fontSize + ' ' + cs.fontFamily;
+    const charW = ctx.measureText('M').width;
+    const gutterW = ta.previousElementSibling ? ta.previousElementSibling.offsetWidth : 0;
+    const top = parseFloat(cs.paddingTop) + (line + 1) * lineH - ta.scrollTop;
+    const left = gutterW + parseFloat(cs.paddingLeft) + col * charW - ta.scrollLeft;
+    const maxLeft = ta.parentElement.clientWidth - box.offsetWidth - 8;
+    box.style.top = top + 'px';
+    box.style.left = Math.max(0, Math.min(left, maxLeft)) + 'px';
+  }
+
+  function updateSuggest(ta, box) {
+    const w = currentWord(ta);
+    if (!w) {
+      box.hidden = true;
+      ta.sug = null;
+      return;
+    }
+    const lower = w.word.toLowerCase();
+    const items = VOCAB.filter((v) => v.toLowerCase().startsWith(lower) && v !== w.word).slice(0, 8);
+    ta.sugStart = w.start;
+    showSuggest(ta, box, items, 0);
+  }
+
+  function acceptSuggest(ta, box, word) {
+    ta.setRangeText(word, ta.sugStart, ta.selectionStart, 'end');
+    box.hidden = true;
+    ta.sug = null;
+    ta.suppress = true;
+    ta.dispatchEvent(new Event('input'));
+  }
+
+  // ลูกศรเลือกคำ, Enter หรือ Tab รับคำที่เลือก, Esc ปิดรายการ คืน true เมื่อใช้ปุ่มนั้นกับรายการ
+  function suggestKey(ta, box, e) {
+    if (box.hidden || !ta.sug || ta.sug.items.length === 0) return false;
+    const n = ta.sug.items.length;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      const step = e.key === 'ArrowDown' ? 1 : n - 1;
+      showSuggest(ta, box, ta.sug.items, (ta.sug.index + step) % n);
+      return true;
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      acceptSuggest(ta, box, ta.sug.items[ta.sug.index]);
+      return true;
+    }
+    if (e.key === 'Escape') {
+      box.hidden = true;
+      return true;
+    }
+    return false;
+  }
+
+  function insertSnippet(i) {
+    const msg = document.getElementById('libMsg');
+    if (!lastEditor) {
+      msg.textContent = 'คลิกเลือกช่องพิมพ์ก่อน แล้วค่อยกดแทรก';
+      return;
+    }
+    const ta = lastEditor;
+    msg.textContent = '';
+    ta.setRangeText(SNIPPET_CODE[i], ta.selectionStart, ta.selectionEnd, 'end');
+    ta.dispatchEvent(new Event('input'));
+    ta.focus();
+  }
+
+  const libPanel = document.getElementById('libPanel');
+  document.getElementById('libToggle').addEventListener('click', () => {
+    libPanel.hidden = !libPanel.hidden;
+  });
+  for (const b of document.querySelectorAll('.lib-insert')) {
+    b.addEventListener('click', () => insertSnippet(Number(b.dataset.snippet)));
+  }
 
   // ---------- ปุ่มตั้งค่า: เปิด-ปิดแผง, Esc หรือคลิกนอกแผงเพื่อปิด ----------
   const settingsBtn = document.getElementById('settingsToggle');
@@ -1847,6 +2081,7 @@ ON DUPLICATE KEY UPDATE score = VALUES(score)</pre>
   for (const card of document.querySelectorAll('.checklist')) {
     const clInput = card.querySelector('.cl-input');
     const clKey = 'checklist:' + card.dataset.checklist;
+    clInput.addEventListener('focus', () => { lastEditor = clInput; });
     if (drafts[clKey]) clInput.value = drafts[clKey];
     clInput.addEventListener('input', () => {
       drafts[clKey] = clInput.value;
