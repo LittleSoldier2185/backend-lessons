@@ -1573,6 +1573,9 @@ ON DUPLICATE KEY UPDATE score = VALUES(score)</pre>
   // ---------- แบบฝึกพิมพ์โค้ดทีละช่วงบรรทัด ----------
   // ปุ่มในช่องพิมพ์ทำงานเหมือน editor: Tab เยื้องบรรทัด (ทั้งบล็อกที่เลือกได้), Shift+Tab ถอนการเยื้อง,
   // Enter ขึ้นบรรทัดใหม่โดยคงการเยื้องเดิม และ Ctrl+Enter ตรวจคำตอบ
+  // วงเล็บคู่ที่ปิดให้อัตโนมัติ: เปิด -> ปิด
+  const OPEN_CLOSE = { '(': ')', '[': ']', '{': '}' };
+
   function lineBounds(v, pos) {
     const start = pos === 0 ? 0 : v.lastIndexOf('\n', pos - 1) + 1;
     const nl = v.indexOf('\n', pos);
@@ -1590,10 +1593,43 @@ ON DUPLICATE KEY UPDATE score = VALUES(score)</pre>
     const en = ta.selectionEnd;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
+      // Enter ระหว่าง {} หรือ [] หรือ () ขยายเป็นสามบรรทัด โดยวางเคอร์เซอร์บรรทัดกลาง
+      if (s === en && OPEN_CLOSE[v[s - 1]] !== undefined && v[s] === OPEN_CLOSE[v[s - 1]]) {
+        const ind = v.slice(lineBounds(v, s)[0], s).match(/^\s*/)[0];
+        ta.setRangeText('\n' + ind + '  \n' + ind, s, en, 'preserve');
+        const caret = s + 1 + ind.length + 2;
+        ta.setSelectionRange(caret, caret);
+        ta.dispatchEvent(new Event('input'));
+        return;
+      }
       const before = v.slice(lineBounds(v, s)[0], s);
       const indent = before.match(/^\s*/)[0];
       const extra = /[{(\[]\s*$/.test(before) ? '  ' : '';
       ta.setRangeText('\n' + indent + extra, s, en, 'end');
+      ta.dispatchEvent(new Event('input'));
+      return;
+    }
+    // วงเล็บ: เปิดแล้วใส่ตัวปิดให้ พิมพ์ตัวปิดที่อยู่ตรงหน้าจะข้ามไป และ Backspace ระหว่างคู่ว่างจะลบทั้งคู่
+    if (e.key in OPEN_CLOSE && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      if (s !== en) {
+        ta.setRangeText(e.key + v.slice(s, en) + OPEN_CLOSE[e.key], s, en, 'select');
+      } else {
+        ta.setRangeText(e.key + OPEN_CLOSE[e.key], s, en, 'preserve');
+        ta.setSelectionRange(s + 1, s + 1);
+      }
+      ta.dispatchEvent(new Event('input'));
+      return;
+    }
+    if (')]}'.includes(e.key) && s === en && v[s] === e.key) {
+      e.preventDefault();
+      ta.setSelectionRange(s + 1, s + 1);
+      return;
+    }
+    if (e.key === 'Backspace' && s === en && s > 0 && OPEN_CLOSE[v[s - 1]] !== undefined && v[s] === OPEN_CLOSE[v[s - 1]]) {
+      e.preventDefault();
+      ta.setRangeText('', s - 1, s + 1, 'preserve');
+      ta.setSelectionRange(s - 1, s - 1);
       ta.dispatchEvent(new Event('input'));
       return;
     }
