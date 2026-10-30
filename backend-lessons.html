@@ -110,6 +110,8 @@
   .lib[hidden] { display: none; }
   .lib-item { display: flex; flex-direction: column; gap: 6px; border-top: 1px dashed var(--border); padding-top: 10px; }
   .lib-item pre { margin: 0; }
+  .copy-bar { display: flex; justify-content: flex-end; }
+  .copy-btn { font-size: 0.78rem; padding: 2px 8px; }
   .gl-search { width: 100%; font: inherit; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--panel); color: var(--fg); }
   .gl-list { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .gl-item { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
@@ -1752,6 +1754,7 @@ ON DUPLICATE KEY UPDATE score = VALUES(score)</pre>
         diffBox.className = 'diff';
         const answer = document.createElement('pre');
         answer.hidden = true;
+        answer.dataset.numbered = '1';
         answer.textContent = block.lines
           .map((l, i) => String(block.start + i).padStart(3, ' ') + '  ' + l)
           .join('\n');
@@ -1761,7 +1764,8 @@ ON DUPLICATE KEY UPDATE score = VALUES(score)</pre>
           const typed = normLines(ta.value, !requireComments);
           diffBox.replaceChildren();
           fb.className = 'feedback';
-          if (typed.length === 0) {
+          // ตรวจจากข้อความที่พิมพ์จริง ไม่ใช่หลังตัดคอมเมนต์ เพื่อไม่ให้บล็อกที่มีแต่คอมเมนต์ถูกนับว่ายังไม่ได้พิมพ์
+          if (ta.value.trim() === '') {
             fb.textContent = 'ยังไม่ได้พิมพ์';
             fb.classList.add('bad');
             passed.delete(key);
@@ -2221,6 +2225,45 @@ ON DUPLICATE KEY UPDATE score = VALUES(score)</pre>
     });
   }
   initGlossary();
+
+  // ---------- ปุ่มคัดลอกโค้ดทุกบล็อก ----------
+  async function copyText(text) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      const t = document.createElement('textarea');
+      t.value = text;
+      document.body.appendChild(t);
+      t.select();
+      const ok = document.execCommand('copy');
+      t.remove();
+      return ok;
+    }
+  }
+
+  function addCopyButtons() {
+    for (const pre of document.querySelectorAll('pre')) {
+      const bar = document.createElement('div');
+      bar.className = 'copy-bar';
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'copy-btn';
+      btn.textContent = 'คัดลอก';
+      btn.addEventListener('click', async () => {
+        // เฉลยที่มีเลขบรรทัดกำกับ ตัดเลขออกก่อนคัดลอก
+        const text = pre.dataset.numbered
+          ? pre.textContent.split('\n').map((l) => l.replace(/^ *\d+  /, '')).join('\n')
+          : pre.textContent;
+        const ok = await copyText(text);
+        btn.textContent = ok ? 'คัดลอกแล้ว' : 'คัดลอกไม่ได้';
+        setTimeout(() => { btn.textContent = 'คัดลอก'; }, 1500);
+      });
+      bar.appendChild(btn);
+      pre.parentNode.insertBefore(bar, pre);
+    }
+  }
+  addCopyButtons();
 
   renderSim();
   buildCalc();
